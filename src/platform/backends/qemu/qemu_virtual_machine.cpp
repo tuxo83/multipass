@@ -704,6 +704,12 @@ void mp::QemuVirtualMachine::resize_disk_impl(const MemorySize& new_size)
     mp::backend::resize_instance_image(new_size, desc.image.image_path);
 }
 
+void mp::QemuVirtualMachine::update_balloon_impl(bool /*enabled*/)
+{
+    // Supported. The device is added to the command line at the next start (but not on resume,
+    // which reuses the arguments saved with the suspended state).
+}
+
 void mp::QemuVirtualMachine::add_network_interface(int /* not used on this backend */,
                                                    const std::string& default_mac_addr,
                                                    const NetworkInterface& extra_interface)

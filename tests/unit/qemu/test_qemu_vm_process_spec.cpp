@@ -95,6 +95,44 @@ TEST_F(TestQemuVMProcessSpec, defaultArgumentsCorrect)
                            "path=path/to/target,mount_tag=m810e457178f448d9afffc9d950d726"}));
 }
 
+TEST_F(TestQemuVMProcessSpec, balloonDeviceAddedWhenEnabled)
+{
+    auto balloon_desc = desc;
+    balloon_desc.balloon = true;
+    mp::QemuVMProcessSpec spec(balloon_desc, platform_args, mount_args, std::nullopt);
+
+#if defined Q_PROCESSOR_S390
+    const auto balloon_device = "virtio-balloon-ccw,id=balloon0,free-page-reporting=on";
+#else
+    const auto balloon_device = "virtio-balloon-pci,id=balloon0,free-page-reporting=on";
+#endif
+    const auto args = spec.arguments();
+    const auto device_index = args.indexOf(balloon_device);
+    ASSERT_GT(device_index, 0);
+    EXPECT_EQ(args.at(device_index - 1), "-device");
+}
+
+TEST_F(TestQemuVMProcessSpec, balloonDeviceAbsentByDefault)
+{
+    mp::QemuVMProcessSpec spec(desc, platform_args, mount_args, std::nullopt);
+
+    EXPECT_FALSE(spec.arguments().join(" ").contains("virtio-balloon"));
+}
+
+TEST_F(TestQemuVMProcessSpec, resumeIgnoresBalloonSetting)
+{
+    // Resuming must reproduce the devices of the suspended VM, whatever the current setting
+    auto balloon_desc = desc;
+    balloon_desc.balloon = true;
+    const mp::QemuVMProcessSpec::ResumeData resume_data{"suspend_tag",
+                                                        "machine_type",
+                                                        {"-one", "-two"}};
+
+    mp::QemuVMProcessSpec spec(balloon_desc, platform_args, mount_args, resume_data);
+
+    EXPECT_FALSE(spec.arguments().join(" ").contains("virtio-balloon"));
+}
+
 TEST_F(TestQemuVMProcessSpec, resumeArgumentsTakenFromResumedata)
 {
     const mp::QemuVMProcessSpec::ResumeData resume_data{"suspend_tag",

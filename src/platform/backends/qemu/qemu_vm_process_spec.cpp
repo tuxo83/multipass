@@ -117,6 +117,14 @@ in `man qemu-system`, under `-m` option; including suffix to avoid relying on de
         args << "-cdrom" << desc.cloud_init_iso;
         // To make `/sys/class/dmi/id/product_uuid` present
         args << "-uuid" << vm_uuid;
+        // Let the guest report free pages, so that the host can reclaim them
+        if (desc.balloon)
+            args << "-device"
+#if defined Q_PROCESSOR_S390
+                 << "virtio-balloon-ccw,id=balloon0,free-page-reporting=on";
+#else
+                 << "virtio-balloon-pci,id=balloon0,free-page-reporting=on";
+#endif
         // clang-format on
     }
 
