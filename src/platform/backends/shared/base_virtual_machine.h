@@ -71,6 +71,7 @@ public:
     void update_cpus(int num_cores) override;
     void resize_memory(const MemorySize& new_size) override;
     void resize_disk(const MemorySize& new_size, UserMessages& messages) override;
+    void update_balloon(bool enabled) override;
     [[nodiscard]] std::vector<IPAddress> get_all_ipv4() override;
     void add_network_interface(int, const std::string&, const NetworkInterface&) override
     {
@@ -131,6 +132,10 @@ protected:
     virtual void update_cpus_impl(int /*num_cores*/) {};
     virtual void resize_memory_impl(const MemorySize& /*new_size*/) {};
     virtual void resize_disk_impl(const MemorySize& new_size) = 0;
+    virtual void update_balloon_impl(bool /*enabled*/)
+    {
+        throw NotImplementedOnThisBackendException("memory balloon");
+    }
 
     /**
      * Refresh the VM, if possible, when the startup appears stuck.

@@ -69,6 +69,7 @@
 #include <cctype>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -1383,6 +1384,48 @@ TEST_F(Daemon, readsMacAddressesFromJson)
 
     daemon.persist_instances();
 }
+
+struct DaemonBalloonJson : public Daemon, public WithParamInterface<std::optional<bool>>
+{
+};
+
+TEST_P(DaemonBalloonJson, readsAndWritesBalloonInJson)
+{
+    config_builder.vault = std::make_unique<NiceMock<mpt::MockVMImageVault>>();
+
+    const auto stored_balloon = GetParam(); // nullopt: written by a version without the setting
+    const auto expected_balloon = stored_balloon.value_or(false);
+    const std::string instance_name{"real-zebraphant"};
+
+    auto json = boost::json::parse(fake_json_contents("52:54:00:73:76:28", {}));
+    if (stored_balloon)
+        json.as_object().at(instance_name).as_object()["balloon"] = *stored_balloon;
+
+    const auto [temp_dir, filename] = plant_instance_json(boost::json::serialize(json));
+
+    EXPECT_CALL(*use_a_mock_vm_factory(), create_virtual_machine)
+        .WillRepeatedly(WithArg<0>([expected_balloon](const auto& desc) {
+            EXPECT_EQ(desc.balloon, expected_balloon);
+            return std::make_unique<mpt::StubVirtualMachine>(desc.vm_name);
+        }));
+
+    config_builder.data_directory = temp_dir->path();
+    mp::Daemon daemon{config_builder.build()};
+
+    auto [mock_file_ops, guard] = mpt::MockFileOps::inject<StrictMock>();
+    EXPECT_CALL(*mock_file_ops, write_transactionally(Eq(filename), _))
+        .WillOnce(WithArg<1>([&instance_name, expected_balloon](const QByteArrayView& data) {
+            auto obj = boost::json::parse({data.begin(), data.end()}).as_object();
+            EXPECT_EQ(value_to<bool>(obj.at(instance_name).as_object().at("balloon")),
+                      expected_balloon);
+        }));
+
+    daemon.persist_instances();
+}
+
+INSTANTIATE_TEST_SUITE_P(Daemon,
+                         DaemonBalloonJson,
+                         Values(std::nullopt, std::optional{false}, std::optional{true}));
 
 TEST_F(Daemon, writesAndReadsMountsInJson)
 {

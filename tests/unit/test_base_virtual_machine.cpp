@@ -110,6 +110,7 @@ struct MockBaseVirtualMachine : public mpt::MockVirtualMachineT<mp::BaseVirtualM
     MOCK_METHOD(void, update_cpus_impl, (int), (override));
     MOCK_METHOD(void, resize_memory_impl, (const mp::MemorySize&), (override));
     MOCK_METHOD(void, resize_disk_impl, (const mp::MemorySize&), (override));
+    MOCK_METHOD(void, update_balloon_impl, (bool), (override));
 
     MOCK_METHOD(std::unique_ptr<mp::SSHProcess>,
                 make_ssh_process,
@@ -1689,6 +1690,35 @@ TEST_F(BaseVM, resizeMemoryLeavesDescriptionWhenImplThrows)
     EXPECT_THROW(vm.mp::BaseVirtualMachine::resize_memory(new_size), std::runtime_error);
 
     EXPECT_EQ(vm.desc.mem_size, orig_mem_size);
+}
+
+TEST_F(BaseVM, updateBalloonCallsImplAndUpdatesDescription)
+{
+    EXPECT_CALL(vm, update_balloon_impl(true));
+
+    vm.mp::BaseVirtualMachine::update_balloon(true);
+
+    EXPECT_TRUE(vm.desc.balloon);
+}
+
+TEST_F(BaseVM, updateBalloonLeavesDescriptionWhenImplThrows)
+{
+    EXPECT_CALL(vm, update_balloon_impl(true))
+        .WillOnce(Throw(mp::NotImplementedOnThisBackendException{"memory balloon"}));
+
+    EXPECT_THROW(vm.mp::BaseVirtualMachine::update_balloon(true),
+                 mp::NotImplementedOnThisBackendException);
+
+    EXPECT_FALSE(vm.desc.balloon);
+}
+
+TEST_F(BaseVM, updateBalloonThrows)
+{
+    StubBaseVirtualMachine stub_vm{zone};
+
+    MP_EXPECT_THROW_THAT(stub_vm.update_balloon(true),
+                         mp::NotImplementedOnThisBackendException,
+                         mpt::match_what(HasSubstr("memory balloon")));
 }
 
 } // namespace
