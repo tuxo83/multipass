@@ -1423,6 +1423,18 @@ TEST_F(QemuBackend, addNetworkInterface)
     EXPECT_NO_THROW(machine->add_network_interface(0, "", {"", "", true}));
 }
 
+TEST_F(QemuBackend, updateBalloonIsSupported)
+{
+    EXPECT_CALL(*mock_qemu_platform_factory, make_qemu_platform(_, _)).WillOnce([this](auto&&...) {
+        return std::move(mock_qemu_platform);
+    });
+
+    mp::QemuVirtualMachineFactory backend{data_dir.path(), az_manager};
+
+    auto machine = backend.create_virtual_machine(default_description, key_provider, stub_monitor);
+    EXPECT_NO_THROW(machine->update_balloon(true));
+}
+
 TEST_F(QemuBackend, createBridgeWithChecksWithQemuPlatform)
 {
     EXPECT_CALL(*mock_qemu_platform_factory, make_qemu_platform(_, _)).WillOnce([this](auto&&...) {
