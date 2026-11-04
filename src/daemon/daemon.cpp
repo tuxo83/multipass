@@ -1537,7 +1537,8 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
                                               spec_copy.extra_interfaces,
                                               spec_copy.ssh_username,
                                               vm_image,
-                                              cloud_init_iso};
+                                              cloud_init_iso,
+                                              spec_copy.balloon};
 
         auto& instance_records_table = spec_copy.deleted ? deleted_instances : operative_instances;
 

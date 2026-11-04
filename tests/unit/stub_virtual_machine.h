@@ -134,6 +134,10 @@ struct StubVirtualMachine final : public VirtualMachine
     {
     }
 
+    void update_balloon(bool) override
+    {
+    }
+
     void add_network_interface(int, const std::string&, const NetworkInterface&) override
     {
     }

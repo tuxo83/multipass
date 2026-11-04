@@ -99,6 +99,7 @@ public:
     virtual void update_cpus(int num_cores) = 0;
     virtual void resize_memory(const MemorySize& new_size) = 0;
     virtual void resize_disk(const MemorySize& new_size, UserMessages& messages) = 0;
+    virtual void update_balloon(bool enabled) = 0;
     virtual void add_network_interface(int index,
                                        const std::string& default_mac_addr,
                                        const NetworkInterface& extra_interface) = 0;

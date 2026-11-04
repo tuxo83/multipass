@@ -46,6 +46,7 @@ struct VMSpecs
     int clone_count =
         0; // tracks the number of cloned vm from this source vm (regardless of deletes)
     std::string zone;
+    bool balloon = false; // virtio-balloon with free page reporting, applied at next start
 
     friend inline bool operator==(const VMSpecs& a, const VMSpecs& b) = default;
 };
