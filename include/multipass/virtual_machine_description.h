@@ -46,6 +46,7 @@ public:
     std::string ssh_username;
     VMImage image;
     Path cloud_init_iso;
+    bool balloon = false;
 };
 } // namespace multipass
 

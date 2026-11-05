@@ -77,6 +77,7 @@ protected:
                                                      const VMSpecs& specs,
                                                      std::shared_ptr<Snapshot> parent) override;
     void resize_disk_impl(const MemorySize& new_size) override;
+    void update_balloon_impl(bool enabled) override;
 
     bool unplugged() override;
     void refresh_start() override;

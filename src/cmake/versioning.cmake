@@ -19,6 +19,11 @@ function(determine_version OUTPUT_VARIABLE)
                   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                   OUTPUT_VARIABLE GIT_VERSION
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
+  # TEST BUILD ONLY (fork without tags): a fixed version so the build can run.
+  if(NOT GIT_VERSION)
+    set(${OUTPUT_VARIABLE} "1.18.0-dev.0+gba11007" PARENT_SCOPE)
+    return()
+  endif()
 
   is_release_branch(GIT_IS_RELEASE_BRANCH)
   # only use -rc tags on release/* branches

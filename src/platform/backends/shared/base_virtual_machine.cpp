@@ -442,6 +442,14 @@ void mp::BaseVirtualMachine::resize_memory(const MemorySize& new_size)
     desc.mem_size = new_size;
 }
 
+void mp::BaseVirtualMachine::update_balloon(bool enabled)
+{
+    mpl::debug(vm_name, "update_balloon() -> enabled `{}`", enabled);
+
+    update_balloon_impl(enabled);
+    desc.balloon = enabled;
+}
+
 void mp::BaseVirtualMachine::resize_disk(const MemorySize& new_size, mp::UserMessages& messages)
 {
     assert(new_size > desc.disk_space);
