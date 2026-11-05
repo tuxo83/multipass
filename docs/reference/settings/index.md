@@ -22,6 +22,7 @@ As of now, this is the total set of settings available:
 - [client.primary-name](client-primary-name)
 - [local.bridged-network](local-bridged-network)
 - [local.driver](local-driver)
+- [local.\<instance-name>.balloon](local-instance-name-balloon)
 - [local.\<instance-name>.bridged](local-instance-name-bridged)
 - [local.\<instance-name>.cpus](local-instance-name-cpus)
 - [local.\<instance-name>.disk](local-instance-name-disk)

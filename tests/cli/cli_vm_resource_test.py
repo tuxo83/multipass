@@ -82,3 +82,35 @@ class TestVmResource:
         assert is_within_tolerance(get_ram_size(instance), 2048)
         assert is_within_tolerance(get_disk_size(instance), 10240)
         assert get_core_count(instance) == 3
+
+    @pytest.mark.parametrize(
+        "instance",
+        [
+            {"cpus": 1, "memory": "1G", "disk": "6G", "image": "jammy"},
+        ],
+        indirect=True,
+    )
+    def test_modify_vm_balloon(self, instance):
+        """Enable the memory balloon on a stopped instance and check that the
+        guest sees the device after the next start (qemu driver only)."""
+
+        assert multipass("get", f"local.{instance}.balloon") == "false"
+        assert multipass("stop", instance)
+
+        if multipass("get", "local.driver") != "qemu":
+            assert not multipass("set", f"local.{instance}.balloon=true")
+            assert multipass("get", f"local.{instance}.balloon") == "false"
+            return
+
+        assert multipass("set", f"local.{instance}.balloon=true")
+        assert multipass("get", f"local.{instance}.balloon") == "true"
+        assert multipass("start", instance)
+
+        assert multipass(
+            "exec",
+            instance,
+            "--",
+            "sh",
+            "-c",
+            "ls /sys/bus/virtio/drivers/virtio_balloon | grep -q virtio",
+        )

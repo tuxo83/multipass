@@ -19,6 +19,7 @@
 #include "mock_virtual_machine.h"
 
 #include <multipass/constants.h>
+#include <multipass/exceptions/not_implemented_on_this_backend_exception.h>
 #include <multipass/utils.h>
 #include <multipass/virtual_machine.h>
 #include <multipass/vm_specs.h>
@@ -142,8 +143,8 @@ struct TestInstanceSettingsHandler : public Test
     bool fake_persister_called = false;
     bool user_authorized = true;
     inline static constexpr std::array numeric_properties{"cpus", "disk", "memory"};
-    inline static constexpr std::array boolean_properties{"bridged"};
-    inline static constexpr std::array properties{"cpus", "disk", "memory", "bridged"};
+    inline static constexpr std::array boolean_properties{"bridged", "balloon"};
+    inline static constexpr std::array properties{"cpus", "disk", "memory", "bridged", "balloon"};
 };
 
 QString make_key(const QString& instance_name, const QString& property)
@@ -286,6 +287,24 @@ INSTANTIATE_TEST_SUITE_P(getFetchesBridged,
                                 std::make_pair("br-eth8", true),
                                 std::make_pair("eth9", false),
                                 std::make_pair("br-eth9", false)));
+
+struct TestBalloonInstanceSettings : public TestInstanceSettingsHandler,
+                                     public WithParamInterface<bool>
+{
+};
+
+TEST_P(TestBalloonInstanceSettings, getFetchesBalloon)
+{
+    constexpr auto target_instance_name = "lemmy";
+    const auto balloon = GetParam();
+    specs.insert({{target_instance_name, {}}, {"other", {}}});
+    specs[target_instance_name].balloon = balloon;
+
+    auto got = make_handler().get(make_key(target_instance_name, "balloon"));
+    EXPECT_EQ(got, balloon ? "true" : "false");
+}
+
+INSTANTIATE_TEST_SUITE_P(getFetchesBalloon, TestBalloonInstanceSettings, Values(true, false));
 
 TEST_F(TestInstanceSettingsHandler, getFetchesPropertiesOfInstanceInSpecialState)
 {
@@ -593,6 +612,64 @@ TEST_F(TestInstanceSettingsHandler, setDoesNotAddTwoInterfaces)
     make_handler().set(make_key(target_instance_name, "bridged"), "true", messages);
 
     EXPECT_EQ(specs[target_instance_name].extra_interfaces.size(), 1u);
+}
+
+TEST_F(TestInstanceSettingsHandler, setEnablesBalloon)
+{
+    constexpr auto target_instance_name = "ella";
+    const auto& actual_balloon = specs[target_instance_name].balloon;
+    ASSERT_FALSE(actual_balloon);
+
+    EXPECT_CALL(mock_vm(target_instance_name), update_balloon(true)).Times(1);
+
+    [[maybe_unused]] mp::UserMessages messages{};
+    make_handler().set(make_key(target_instance_name, "balloon"), "true", messages);
+    EXPECT_TRUE(actual_balloon);
+    EXPECT_TRUE(fake_persister_called);
+}
+
+TEST_F(TestInstanceSettingsHandler, setDisablesBalloon)
+{
+    constexpr auto target_instance_name = "nina";
+    const auto& actual_balloon = specs[target_instance_name].balloon = true;
+
+    EXPECT_CALL(mock_vm(target_instance_name), update_balloon(false)).Times(1);
+
+    [[maybe_unused]] mp::UserMessages messages{};
+    make_handler().set(make_key(target_instance_name, "balloon"), "false", messages);
+    EXPECT_FALSE(actual_balloon);
+}
+
+TEST_F(TestInstanceSettingsHandler, setMaintainsBalloonUntouchedIfSameButSucceeds)
+{
+    constexpr auto target_instance_name = "billie";
+    const auto& actual_balloon = specs[target_instance_name].balloon = true;
+
+    EXPECT_CALL(mock_vm(target_instance_name), update_balloon).Times(0);
+
+    [[maybe_unused]] mp::UserMessages messages{};
+    EXPECT_NO_THROW(
+        make_handler().set(make_key(target_instance_name, "balloon"), "true", messages));
+    EXPECT_TRUE(actual_balloon);
+}
+
+TEST_F(TestInstanceSettingsHandler, setRefusesBalloonOnUnsupportedBackend)
+{
+    constexpr auto target_instance_name = "aretha";
+    specs[target_instance_name];
+    const auto original_specs = specs;
+
+    EXPECT_CALL(mock_vm(target_instance_name), update_balloon(true))
+        .WillOnce(Throw(mp::NotImplementedOnThisBackendException{"memory balloon"}));
+
+    [[maybe_unused]] mp::UserMessages messages{};
+    MP_EXPECT_THROW_THAT(
+        make_handler().set(make_key(target_instance_name, "balloon"), "true", messages),
+        mp::InvalidSettingException,
+        mpt::match_what(HasSubstr("memory balloon")));
+
+    EXPECT_EQ(specs, original_specs);
+    EXPECT_FALSE(fake_persister_called);
 }
 
 using VMSt = mp::VirtualMachine::State;

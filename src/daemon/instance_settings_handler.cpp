@@ -20,6 +20,7 @@
 #include <multipass/cli/prompters.h>
 #include <multipass/constants.h>
 #include <multipass/exceptions/invalid_memory_size_exception.h>
+#include <multipass/exceptions/not_implemented_on_this_backend_exception.h>
 #include <multipass/settings/bool_setting_spec.h>
 
 #include <QRegularExpression>
@@ -33,6 +34,7 @@ constexpr auto cpus_suffix = "cpus";
 constexpr auto mem_suffix = "memory";
 constexpr auto disk_suffix = "disk";
 constexpr auto bridged_suffix = "bridged";
+constexpr auto balloon_suffix = "balloon";
 
 enum class Operation
 {
@@ -51,7 +53,7 @@ QRegularExpression make_key_regex()
     const auto instance_pattern = QStringLiteral("(?<instance>.+)");
     const auto prop_template = QStringLiteral("(?<property>%1)");
     const auto either_prop =
-        QStringList{cpus_suffix, mem_suffix, disk_suffix, bridged_suffix}.join("|");
+        QStringList{cpus_suffix, mem_suffix, disk_suffix, bridged_suffix, balloon_suffix}.join("|");
     const auto prop_pattern = prop_template.arg(either_prop);
 
     const auto key_template = QStringLiteral(R"(%1\.%2\.%3)");
@@ -196,6 +198,27 @@ void update_bridged(const QString& key,
     else
         add_interface(instance_name); // if already bridged, this merely warns
 }
+
+void update_balloon(const QString& key,
+                    const QString& val,
+                    mp::VirtualMachine& instance,
+                    mp::VMSpecs& spec)
+{
+    auto want_balloon = mp::BoolSettingSpec{key, "false"}.interpret(val) == "true";
+    if (want_balloon != spec.balloon) // NOOP if equal
+    {
+        try
+        {
+            instance.update_balloon(want_balloon);
+        }
+        catch (const mp::NotImplementedOnThisBackendException& e)
+        {
+            throw mp::InvalidSettingException{key, val, e.what()};
+        }
+
+        spec.balloon = want_balloon;
+    }
+}
 } // namespace
 
 mp::InstanceSettingsException::InstanceSettingsException(const std::string& reason,
@@ -229,7 +252,8 @@ std::set<QString> mp::InstanceSettingsHandler::keys() const
 
     std::set<QString> ret;
     for (const auto& item : vm_instance_specs)
-        for (const auto& suffix : {cpus_suffix, mem_suffix, disk_suffix, bridged_suffix})
+        for (const auto& suffix :
+             {cpus_suffix, mem_suffix, disk_suffix, bridged_suffix, balloon_suffix})
             ret.insert(key_template.arg(item.first.c_str()).arg(suffix));
 
     return ret;
@@ -244,6 +268,8 @@ QString mp::InstanceSettingsHandler::get(const QString& key) const
     {
         return is_bridged(instance_name) ? "true" : "false";
     }
+    if (property == balloon_suffix)
+        return spec.balloon ? "true" : "false";
     if (property == cpus_suffix)
         return QString::number(spec.num_cores);
     if (property == mem_suffix)
@@ -277,6 +303,8 @@ void mp::InstanceSettingsHandler::set(const QString& key,
     {
         update_bridged(key, val, instance_name, is_bridged, add_interface);
     }
+    else if (property == balloon_suffix)
+        update_balloon(key, val, instance, spec);
     else
     {
         auto size = get_memory_size(key, val);
