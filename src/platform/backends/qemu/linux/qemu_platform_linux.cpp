@@ -257,6 +257,16 @@ QStringList mp::QemuPlatformLinux::vm_platform_args(const VirtualMachineDescript
          << "host";
     // clang-format on
 
+    // Let the guest report the pages it frees, so that QEMU discards them and an idle instance
+    // gives memory back to the host. A guest kernel without free page reporting (before 5.7)
+    // does not negotiate the feature, and the device stays idle.
+    opts << "-device"
+#if defined Q_PROCESSOR_S390
+         << "virtio-balloon-ccw,id=balloon0,free-page-reporting=on";
+#else
+         << "virtio-balloon-pci,id=balloon0,free-page-reporting=on";
+#endif
+
     // Set up the network related args
     opts << "-nic"
          << QString::fromStdString(
